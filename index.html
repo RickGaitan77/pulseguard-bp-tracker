@@ -1,0 +1,1125 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>PulseGuard - Cardiovascular Telemetry</title>
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            slate: {
+              950: '#020617',
+              900: '#0f172a',
+              800: '#1e293b',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    body {
+      overscroll-behavior-y: none;
+      background-color: #020617;
+      color: #f8fafc;
+      -webkit-font-smoothing: antialiased;
+    }
+    
+    .font-mono-numeric {
+      font-feature-settings: "tnum", "cv02", "cv03", "cv04";
+      font-variant-numeric: tabular-nums;
+    }
+
+    .glass-panel {
+      background: rgba(15, 23, 42, 0.6);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(30, 41, 59, 0.8);
+      border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(51, 65, 85, 0.8);
+    }
+
+    /* Ambient background animations */
+    @keyframes float {
+      0%, 100% { transform: translateY(0) scale(1); }
+      50% { transform: translateY(-20px) scale(1.05); }
+    }
+    .animate-float {
+      animation: float 10s ease-in-out infinite;
+    }
+    
+    @keyframes pulse-crimson {
+      0%, 100% { box-shadow: 0 0 15px rgba(225, 29, 72, 0.4); border-color: rgba(225, 29, 72, 0.6); }
+      50% { box-shadow: 0 0 35px rgba(225, 29, 72, 0.8); border-color: rgba(225, 29, 72, 1); }
+    }
+    .animate-pulse-crimson {
+      animation: pulse-crimson 2s infinite;
+    }
+
+    .gauge-circle-bg {
+      stroke: rgba(30, 41, 59, 0.8);
+    }
+    
+    /* Toggle switch CSS */
+    .toggle-checkbox:checked {
+      right: 0;
+      border-color: #10b981;
+    }
+    .toggle-checkbox:checked + .toggle-label {
+      background-color: #10b981;
+    }
+    
+    /* Hide specific views natively to prevent flash */
+    .view-hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+<body class="min-h-screen relative overflow-x-hidden pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
+
+  <!-- Futuristic Ambient Glowing Mesh Backgrounds -->
+  <div class="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+    <div class="absolute -top-40 -left-40 w-[600px] h-[600px] rounded-full bg-cyan-600/10 blur-[130px] animate-float"></div>
+    <div class="absolute top-20 right-[-100px] w-[500px] h-[500px] rounded-full bg-purple-600/10 blur-[120px] animate-float" style="animation-delay: 2s;"></div>
+    <div class="absolute -bottom-20 left-1/3 w-[600px] h-[500px] rounded-full bg-emerald-600/5 blur-[140px] animate-float" style="animation-delay: 4s;"></div>
+    <div class="absolute inset-0 opacity-[0.02]" style="background-image: linear-gradient(to right, #ffffff 1px, transparent 1px), linear-gradient(to bottom, #ffffff 1px, transparent 1px); background-size: 40px 40px;"></div>
+  </div>
+
+  <!-- Main App Wrapper -->
+  <div class="relative z-10 flex flex-col h-full min-h-screen">
+    
+    <!-- Header Navigation -->
+    <header class="border-b border-cyan-500/20 bg-slate-950/80 backdrop-blur-xl sticky top-0 px-4 sm:px-6 lg:px-8 py-3 z-40 shadow-[0_4px_30px_rgba(0,0,0,0.5)] pt-[max(env(safe-area-inset-top),0.75rem)]">
+      <div class="max-w-7xl mx-auto flex flex-col lg:flex-row items-center justify-between gap-4">
+        
+        <!-- Branding -->
+        <div class="flex items-center gap-3 w-full lg:w-auto justify-between lg:justify-start">
+          <div class="flex items-center gap-3">
+            <div class="relative flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500/20 to-purple-500/20 border border-cyan-400/30 shadow-[0_0_20px_rgba(6,182,212,0.25)]">
+              <i data-lucide="activity" class="w-5 h-5 text-cyan-400 animate-pulse"></i>
+              <span class="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+              </span>
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <h1 class="text-lg font-extrabold tracking-tight text-white font-mono-numeric">
+                  PULSE<span class="text-cyan-400">GUARD</span>
+                </h1>
+                <span class="px-2 py-0.5 text-[9px] uppercase font-semibold tracking-wider bg-cyan-950/80 text-cyan-300 border border-cyan-500/30 rounded-full">v2.5</span>
+              </div>
+              <p class="text-[11px] text-slate-400 hidden sm:block">Cardiovascular Telemetry Studio</p>
+            </div>
+          </div>
+          <!-- Mobile view selector dropdown trigger -->
+          <button id="mobile-view-trigger" class="lg:hidden p-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-300">
+            <i data-lucide="menu" class="w-5 h-5"></i>
+          </button>
+        </div>
+
+        <!-- View Switcher Tabs (Desktop) & Actions -->
+        <div id="desktop-nav" class="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto lg:flex">
+          
+          <!-- Tabs -->
+          <div class="flex items-center bg-slate-900/90 p-1 rounded-2xl border border-slate-800 shadow-[inset_0_2px_8px_rgba(0,0,0,0.5)] w-full sm:w-auto overflow-x-auto snap-x">
+            <button onclick="switchView('command-center')" id="tab-command-center" class="snap-center flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-mono-numeric font-semibold transition-all text-cyan-400 border border-cyan-500/50 bg-cyan-950/50 shadow-[0_0_12px_rgba(6,182,212,0.2)]">
+              <i data-lucide="layout-dashboard" class="w-3.5 h-3.5"></i> Command Center
+            </button>
+            <button onclick="switchView('metric-focused')" id="tab-metric-focused" class="snap-center flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-mono-numeric font-semibold transition-all text-slate-400 hover:text-slate-200">
+              <i data-lucide="gauge" class="w-3.5 h-3.5"></i> Metric Focused
+            </button>
+            <button onclick="switchView('feed-cards')" id="tab-feed-cards" class="snap-center flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-mono-numeric font-semibold transition-all text-slate-400 hover:text-slate-200">
+              <i data-lucide="layers" class="w-3.5 h-3.5"></i> Feed & Cards
+            </button>
+          </div>
+
+          <!-- Actions -->
+          <div class="flex items-center gap-2 shrink-0">
+            <button onclick="exportCSV()" class="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-slate-300 bg-slate-900/80 hover:bg-slate-800 hover:text-cyan-300 border border-slate-700/60 rounded-xl transition-all">
+              <i data-lucide="download" class="w-3.5 h-3.5 text-cyan-400"></i> <span class="hidden sm:inline">CSV</span>
+            </button>
+            <button onclick="openModal('backupModal')" class="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-slate-300 bg-slate-900/80 hover:bg-slate-800 hover:text-purple-300 border border-slate-700/60 rounded-xl transition-all">
+              <i data-lucide="database" class="w-3.5 h-3.5 text-purple-400"></i> <span class="hidden sm:inline">JSON</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-grow max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      
+      <!-- Anomaly Alert Banner (Injected via JS) -->
+      <div id="anomaly-banner-container"></div>
+
+      <!-- VIEW 1: Command Center -->
+      <div id="view-command-center" class="space-y-6">
+        
+        <!-- Dual Line Chart -->
+        <section class="glass-panel rounded-3xl p-5 sm:p-6 border-cyan-500/20 shadow-[0_8px_32px_rgba(0,0,0,0.5)] space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div class="flex items-center gap-2">
+              <div class="p-2 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                <i data-lucide="activity" class="w-4 h-4"></i>
+              </div>
+              <h3 class="text-xs font-bold uppercase tracking-wider text-slate-200 font-mono-numeric">Trending Telemetry</h3>
+            </div>
+            <!-- Timeframe Filter -->
+            <div class="flex bg-slate-950/80 p-1 rounded-xl border border-slate-800">
+              <button onclick="setChartTimeframe('7d')" id="tf-1-7d" class="px-3 py-1 rounded-lg text-[10px] font-mono-numeric font-bold bg-cyan-500/20 text-cyan-300">7D</button>
+              <button onclick="setChartTimeframe('30d')" id="tf-1-30d" class="px-3 py-1 rounded-lg text-[10px] font-mono-numeric font-bold text-slate-400">30D</button>
+              <button onclick="setChartTimeframe('90d')" id="tf-1-90d" class="px-3 py-1 rounded-lg text-[10px] font-mono-numeric font-bold text-slate-400">90D</button>
+              <button onclick="setChartTimeframe('all')" id="tf-1-all" class="px-3 py-1 rounded-lg text-[10px] font-mono-numeric font-bold text-slate-400">ALL</button>
+            </div>
+          </div>
+          <div class="h-64 sm:h-80 w-full relative">
+            <canvas id="chart-command-center"></canvas>
+          </div>
+        </section>
+
+        <!-- Quick Log Strip -->
+        <section class="glass-panel rounded-3xl p-4 sm:p-5 border-cyan-500/30 shadow-[0_8px_32px_rgba(6,182,212,0.2)] bg-gradient-to-r from-slate-950 via-slate-900/90 to-slate-950">
+          <form id="quick-log-form" onsubmit="handleQuickLog(event)" class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+              <div class="p-2.5 rounded-2xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 shadow-[0_0_15px_rgba(6,182,212,0.3)]">
+                <i data-lucide="zap" class="w-5 h-5"></i>
+              </div>
+              <div>
+                <h3 class="text-xs font-bold uppercase tracking-wider text-white font-mono-numeric flex items-center gap-2">
+                  Rapid-Log HUD <span id="quick-log-badge" class="px-2 py-0.5 rounded-full text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/50">Optimal</span>
+                </h3>
+                <p class="text-[11px] text-slate-400">1-Click fast telemetry logging</p>
+              </div>
+            </div>
+
+            <div class="w-full lg:w-auto flex flex-wrap items-center gap-2.5">
+              <div class="flex items-center bg-slate-950/80 border border-cyan-500/30 rounded-xl px-2.5 py-1.5">
+                <span class="text-[10px] font-mono-numeric text-cyan-400 font-bold mr-1.5 uppercase">SYS:</span>
+                <input type="number" id="ql-sys" value="120" min="60" max="250" required oninput="updateQuickLogBadge()" class="w-12 bg-transparent text-sm font-bold text-white font-mono-numeric focus:outline-none">
+              </div>
+              <div class="flex items-center bg-slate-950/80 border border-purple-500/30 rounded-xl px-2.5 py-1.5">
+                <span class="text-[10px] font-mono-numeric text-purple-400 font-bold mr-1.5 uppercase">DIA:</span>
+                <input type="number" id="ql-dia" value="80" min="40" max="160" required oninput="updateQuickLogBadge()" class="w-12 bg-transparent text-sm font-bold text-white font-mono-numeric focus:outline-none">
+              </div>
+              <div class="flex items-center bg-slate-950/80 border border-amber-500/30 rounded-xl px-2.5 py-1.5">
+                <span class="text-[10px] font-mono-numeric text-amber-400 font-bold mr-1.5 uppercase">BPM:</span>
+                <input type="number" id="ql-pulse" value="72" min="35" max="220" required class="w-12 bg-transparent text-sm font-bold text-white font-mono-numeric focus:outline-none">
+              </div>
+              
+              <select id="ql-arm" class="bg-slate-950/80 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-slate-300 font-mono-numeric focus:outline-none">
+                <option value="left">Left Arm</option>
+                <option value="right">Right Arm</option>
+              </select>
+
+              <button type="submit" class="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-slate-950 bg-gradient-to-r from-cyan-400 to-cyan-300 rounded-xl shadow-[0_0_15px_rgba(6,182,212,0.4)] ml-auto sm:ml-0">
+                <i data-lucide="plus" class="w-4 h-4 text-slate-950"></i> Save
+              </button>
+            </div>
+          </form>
+        </section>
+
+        <!-- Summary Tiles Container -->
+        <div id="cmd-tiles" class="grid grid-cols-2 md:grid-cols-4 gap-3"></div>
+
+      </div>
+
+      <!-- VIEW 2: Metric Focused -->
+      <div id="view-metric-focused" class="view-hidden space-y-6">
+        
+        <div class="flex items-center justify-between px-1">
+          <div class="flex items-center gap-2">
+            <i data-lucide="sparkles" class="w-4 h-4 text-cyan-400"></i>
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-200 font-mono-numeric">Biometric Gauges (7-Day Baseline)</h3>
+          </div>
+        </div>
+
+        <!-- Gauges Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="gauges-container">
+          <!-- Populated by JS -->
+        </div>
+
+        <!-- Collapsible Chart -->
+        <section class="glass-panel rounded-3xl p-5 border-slate-800/90 shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
+          <div class="flex items-center justify-between">
+            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-200 font-mono-numeric flex items-center gap-2">
+              <i data-lucide="activity" class="w-4 h-4 text-purple-400"></i> Timeline Waveform
+            </h4>
+            <div class="flex bg-slate-950/80 p-1 rounded-xl border border-slate-800">
+              <button onclick="setChartTimeframe('7d')" id="tf-2-7d" class="px-3 py-1 rounded-lg text-[10px] font-mono-numeric font-bold bg-purple-500/20 text-purple-300">7D</button>
+              <button onclick="setChartTimeframe('30d')" id="tf-2-30d" class="px-3 py-1 rounded-lg text-[10px] font-mono-numeric font-bold text-slate-400">30D</button>
+              <button onclick="setChartTimeframe('all')" id="tf-2-all" class="px-3 py-1 rounded-lg text-[10px] font-mono-numeric font-bold text-slate-400">ALL</button>
+            </div>
+          </div>
+          <div class="mt-4 pt-4 border-t border-slate-800 h-64 sm:h-80 w-full relative">
+            <canvas id="chart-metric-focused"></canvas>
+          </div>
+        </section>
+
+      </div>
+
+      <!-- VIEW 3: Feed & Cards -->
+      <div id="view-feed-cards" class="view-hidden space-y-6 pb-20"> <!-- extra pb for FAB -->
+        
+        <div class="flex items-center justify-between px-1">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-400 font-mono-numeric flex items-center gap-2">
+            <i data-lucide="sparkles" class="w-3.5 h-3.5 text-cyan-400"></i> Cardio Snapshot Cards
+          </span>
+          <span class="text-[11px] text-slate-500 font-mono-numeric">Swipe ➔</span>
+        </div>
+
+        <!-- Carousel Cards (Injected via JS) -->
+        <div id="feed-carousel" class="flex overflow-x-auto pb-3 pt-1 gap-4 snap-x snap-mandatory scrollbar-thin">
+           <!-- Populated by JS -->
+        </div>
+
+        <!-- Feed Header -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-4 border-t border-slate-800/50">
+          <div class="flex items-center gap-2">
+            <i data-lucide="clock" class="w-4 h-4 text-cyan-400"></i>
+            <h3 class="text-sm font-bold uppercase tracking-wider text-slate-200 font-mono-numeric" id="feed-count-header">
+              Telemetry Feed
+            </h3>
+          </div>
+        </div>
+
+        <!-- Vertical Feed (Injected via JS) -->
+        <div id="feed-container" class="space-y-3">
+          <!-- Cards populated by JS -->
+        </div>
+
+        <!-- Floating Action Button (FAB) -->
+        <button onclick="openModal('logModal')" class="fixed bottom-[max(env(safe-area-inset-bottom,24px),24px)] right-6 z-40 flex items-center gap-2 px-5 py-3.5 rounded-full bg-gradient-to-r from-cyan-400 to-cyan-300 text-slate-950 font-bold text-sm font-mono-numeric shadow-[0_0_25px_rgba(6,182,212,0.6)] hover:shadow-[0_0_35px_rgba(6,182,212,0.8)] transition-all cursor-pointer">
+          <span class="relative flex h-3 w-3">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-slate-950 opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-3 w-3 bg-slate-950"></span>
+          </span>
+          <i data-lucide="plus" class="w-5 h-5 stroke-[2.5]"></i> Log Vitals
+        </button>
+
+      </div>
+
+    </main>
+  </div>
+
+  <!-- MODALS -->
+  <!-- 1. Log / Edit Modal -->
+  <div id="logModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto pt-[env(safe-area-inset-top)]">
+    <div class="relative w-full max-w-xl glass-panel border border-slate-800 rounded-3xl p-6 shadow-2xl my-auto animate-in fade-in zoom-in-95">
+      <div class="flex items-center justify-between mb-6">
+        <h2 id="logModalTitle" class="text-lg font-bold uppercase tracking-wider text-white font-mono-numeric flex items-center gap-2">
+          <i data-lucide="plus" class="w-5 h-5 text-cyan-400"></i> Record Vitals
+        </h2>
+        <button onclick="closeModal('logModal')" class="p-2 rounded-xl text-slate-400 hover:text-white bg-slate-900/80 hover:bg-slate-800 border border-slate-700/60">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <form id="full-log-form" onsubmit="handleFullLogSubmit(event)" class="space-y-5">
+        <input type="hidden" id="edit-id" value="">
+        
+        <!-- SYS / DIA / Pulse -->
+        <div class="grid grid-cols-3 gap-3">
+          <div class="space-y-1.5">
+            <label class="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono-numeric">Systolic</label>
+            <input type="number" id="f-sys" required min="60" max="250" class="w-full bg-slate-900/80 border border-slate-700 rounded-xl px-3 py-2.5 text-white font-mono-numeric focus:border-cyan-500 focus:outline-none" placeholder="120">
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono-numeric">Diastolic</label>
+            <input type="number" id="f-dia" required min="40" max="160" class="w-full bg-slate-900/80 border border-slate-700 rounded-xl px-3 py-2.5 text-white font-mono-numeric focus:border-purple-500 focus:outline-none" placeholder="80">
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono-numeric">Pulse</label>
+            <input type="number" id="f-pulse" required min="35" max="220" class="w-full bg-slate-900/80 border border-slate-700 rounded-xl px-3 py-2.5 text-white font-mono-numeric focus:border-amber-500 focus:outline-none" placeholder="72">
+          </div>
+        </div>
+
+        <!-- Date & Time -->
+        <div class="grid grid-cols-2 gap-3">
+          <div class="space-y-1.5">
+            <label class="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono-numeric">Date</label>
+            <input type="date" id="f-date" required class="w-full bg-slate-900/80 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-300 font-mono-numeric focus:border-cyan-500 focus:outline-none style-color-scheme-dark">
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono-numeric">Time</label>
+            <input type="time" id="f-time" required class="w-full bg-slate-900/80 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-300 font-mono-numeric focus:border-cyan-500 focus:outline-none style-color-scheme-dark">
+          </div>
+        </div>
+
+        <!-- Arm & Position -->
+        <div class="grid grid-cols-2 gap-3">
+          <div class="space-y-1.5">
+            <label class="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono-numeric">Arm</label>
+            <select id="f-arm" class="w-full bg-slate-900/80 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-300 font-mono-numeric focus:border-cyan-500 focus:outline-none">
+              <option value="left">Left Arm</option>
+              <option value="right">Right Arm</option>
+            </select>
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono-numeric">Posture</label>
+            <select id="f-pos" class="w-full bg-slate-900/80 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-300 font-mono-numeric focus:border-cyan-500 focus:outline-none">
+              <option value="sitting">Sitting</option>
+              <option value="standing">Standing</option>
+              <option value="lying">Lying Down</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Meds -->
+        <div class="space-y-3 pt-2 border-t border-slate-800">
+          <label class="flex items-center gap-3 cursor-pointer">
+            <div class="relative">
+              <input type="checkbox" id="f-medtaken" class="sr-only">
+              <div class="block bg-slate-800 w-10 h-6 rounded-full border border-slate-700"></div>
+              <div id="f-med-dot" class="dot absolute left-1 top-1 bg-slate-400 w-4 h-4 rounded-full transition-transform duration-300"></div>
+            </div>
+            <span class="text-sm font-semibold text-slate-200 font-mono-numeric">Medication Taken</span>
+          </label>
+          <input type="text" id="f-mednames" placeholder="e.g. Lisinopril 10mg, Amlodipine" class="hidden w-full bg-slate-900/80 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-300 font-mono-numeric focus:border-emerald-500 focus:outline-none">
+        </div>
+
+        <!-- Notes -->
+        <div class="space-y-1.5 pt-2">
+          <label class="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono-numeric">Notes</label>
+          <textarea id="f-notes" rows="2" placeholder="Felt dizzy, drank coffee prior..." class="w-full bg-slate-900/80 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-300 font-mono-numeric focus:border-cyan-500 focus:outline-none"></textarea>
+        </div>
+
+        <button type="submit" class="w-full py-3.5 rounded-xl bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 font-extrabold text-sm uppercase tracking-wider shadow-[0_0_20px_rgba(6,182,212,0.4)] hover:shadow-[0_0_30px_rgba(6,182,212,0.6)] transition-all">
+          Save Reading
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- 2. Backup/Restore JSON Modal -->
+  <div id="backupModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto">
+    <div class="relative w-full max-w-md glass-panel border border-slate-800 rounded-3xl p-6 shadow-2xl my-auto animate-in fade-in zoom-in-95">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-bold uppercase tracking-wider text-white font-mono-numeric flex items-center gap-2">
+          <i data-lucide="database" class="w-5 h-5 text-purple-400"></i> JSON Backup
+        </h2>
+        <button onclick="closeModal('backupModal')" class="p-2 rounded-xl text-slate-400 hover:text-white bg-slate-900/80 hover:bg-slate-800 border border-slate-700/60">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+      <p class="text-sm text-slate-400 mb-6 font-mono-numeric">Export your raw data for safekeeping, or paste JSON to restore a previous backup.</p>
+      
+      <div class="space-y-4">
+        <button onclick="exportJSON()" class="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-slate-900 border border-purple-500/30 text-purple-400 font-bold font-mono-numeric hover:bg-purple-500/10 transition-all">
+          <i data-lucide="download" class="w-4 h-4"></i> Download JSON Backup
+        </button>
+        
+        <div class="relative pt-4">
+          <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-slate-800"></div></div>
+          <div class="relative flex justify-center text-[10px] uppercase font-bold text-slate-500 bg-transparent"><span class="bg-[#0b1120] px-2">OR RESTORE</span></div>
+        </div>
+
+        <textarea id="import-json-data" rows="4" placeholder="Paste JSON array here..." class="w-full bg-slate-900/80 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-slate-300 font-mono-numeric focus:border-cyan-500 focus:outline-none"></textarea>
+        <button onclick="importJSON()" class="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-purple-500 to-purple-400 text-white font-bold font-mono-numeric shadow-[0_0_15px_rgba(168,85,247,0.4)] transition-all">
+          <i data-lucide="upload" class="w-4 h-4"></i> Restore Data
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    /* Dark mode date/time picker icon styles (Chrome/Safari specific) */
+    .style-color-scheme-dark { color-scheme: dark; }
+    
+    /* Toggle Checkbox logic for standard JS */
+    #f-medtaken:checked ~ #f-med-dot { transform: translateX(100%); background-color: #10b981; }
+    #f-medtaken:checked ~ #f-mednames { display: block; }
+  </style>
+
+  <script>
+    // --- 1. CORE DATA & STATE ---
+    const STORAGE_KEY = 'pulseguard_cardio_telemetry_v2';
+    
+    // Fallback seed data
+    const SAMPLE_READINGS = [
+      { id: '1', timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(), systolic: 122, diastolic: 82, pulse: 74, arm: 'left', position: 'sitting', medTaken: true, medNames: ['Lisinopril'], notes: 'Morning check' },
+      { id: '2', timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24 * 1).toISOString(), systolic: 118, diastolic: 78, pulse: 70, arm: 'left', position: 'sitting', medTaken: true, medNames: ['Lisinopril'], notes: '' },
+      { id: '3', timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2).toISOString(), systolic: 135, diastolic: 88, pulse: 82, arm: 'right', position: 'standing', medTaken: false, medNames: [], notes: 'Forgot meds' },
+      { id: '4', timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24 * 3).toISOString(), systolic: 125, diastolic: 80, pulse: 75, arm: 'left', position: 'sitting', medTaken: true, medNames: ['Lisinopril'], notes: '' },
+    ];
+
+    let readings = [];
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        readings = JSON.parse(stored);
+      }
+    } catch (e) { console.error('LocalStorage error', e); }
+    
+    if (!readings || readings.length === 0) {
+      readings = SAMPLE_READINGS;
+      saveReadings();
+    }
+
+    let activeView = 'command-center';
+    let chartTimeframe = '7d';
+    let feedCardTimeframe = '7d'; // 7d or 30d toggle
+    let theChart = null; // Chart.js instance
+
+    // --- 2. CLINICAL LOGIC ---
+    function classifyAHA(sys, dia) {
+      if (sys > 180 || dia > 120) return { stage: 'Hypertensive Crisis', badge: 'bg-rose-500/20 text-rose-300 border-rose-500/50 shadow-[0_0_12px_rgba(225,29,72,0.6)]' };
+      if (sys < 90 || dia < 60) return { stage: 'Hypotension', badge: 'bg-sky-500/20 text-sky-300 border-sky-500/40 shadow-[0_0_8px_rgba(14,165,233,0.3)]' };
+      if (sys >= 140 || dia >= 90) return { stage: 'Stage 2', badge: 'bg-red-500/20 text-red-300 border-red-500/40 shadow-[0_0_8px_rgba(239,68,68,0.3)]' };
+      if (sys >= 130 || dia >= 80) return { stage: 'Stage 1', badge: 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-[0_0_8px_rgba(245,158,11,0.3)]' };
+      if (sys >= 120 && dia < 80) return { stage: 'Elevated', badge: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/40' };
+      return { stage: 'Normal', badge: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-[0_0_8px_rgba(16,185,129,0.2)]' };
+    }
+
+    function calculateMAP(sys, dia) { return Math.round((dia + (sys - dia) / 3) * 10) / 10; }
+    function calculatePP(sys, dia) { return sys - dia; }
+
+    function detectAnomalies(data) {
+      if(data.length < 2) return [];
+      const alerts = [];
+      const latest = data[0];
+      const prev = data[1];
+
+      // Hypotension
+      if(latest.systolic < 90 || latest.diastolic < 60) {
+        alerts.push({ type: 'danger', icon: 'shield-alert', title: 'Hypotension Detected', msg: `Current reading (${latest.systolic}/${latest.diastolic}) is abnormally low.`});
+      }
+      // Rapid Surge
+      if((latest.systolic - prev.systolic >= 20) || (latest.diastolic - prev.diastolic >= 10)) {
+         alerts.push({ type: 'warning', icon: 'trending-up', title: 'Rapid BP Surge', msg: `SYS increased by ${latest.systolic - prev.systolic} and DIA by ${latest.diastolic - prev.diastolic} since last reading.`});
+      }
+      // Upward Drift
+      if (data.length >= 3) {
+        if(data[0].systolic > data[1].systolic && data[1].systolic > data[2].systolic) {
+          alerts.push({ type: 'info', icon: 'activity', title: 'Upward Drift', msg: 'Systolic pressure has increased for 3 consecutive readings.'});
+        }
+      }
+      return alerts;
+    }
+
+    function filterByTime(data, tf) {
+      if(tf === 'all') return data;
+      const days = tf === '7d' ? 7 : (tf === '30d' ? 30 : 90);
+      const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+      return data.filter(r => new Date(r.timestamp) >= cutoff);
+    }
+
+    function computeMetrics(data) {
+      if(!data.length) return { avgSys: 0, avgDia: 0, avgPulse: 0, avgMap: 0, count: 0, minSys: 0, maxSys: 0 };
+      const sysTotal = data.reduce((a, c) => a + c.systolic, 0);
+      const diaTotal = data.reduce((a, c) => a + c.diastolic, 0);
+      const pulseTotal = data.reduce((a, c) => a + c.pulse, 0);
+      
+      const sysArr = data.map(d => d.systolic);
+      return {
+        avgSys: Math.round(sysTotal / data.length),
+        avgDia: Math.round(diaTotal / data.length),
+        avgPulse: Math.round(pulseTotal / data.length),
+        avgMap: calculateMAP(sysTotal / data.length, diaTotal / data.length),
+        count: data.length,
+        minSys: Math.min(...sysArr),
+        maxSys: Math.max(...sysArr)
+      };
+    }
+
+    // --- 3. DOM RENDERING ---
+    function saveReadings() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(readings));
+      renderApp();
+    }
+
+    function renderApp() {
+      // Sort newest first globally
+      readings.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
+      
+      renderAlerts();
+      if(activeView === 'command-center') {
+        renderChart('chart-command-center');
+        renderCmdTiles();
+        updateQuickLogBadge();
+      } else if (activeView === 'metric-focused') {
+        renderChart('chart-metric-focused');
+        renderGauges();
+      } else if (activeView === 'feed-cards') {
+        renderFeedCards();
+        renderFeed();
+      }
+      
+      lucide.createIcons();
+    }
+
+    function switchView(viewId) {
+      activeView = viewId;
+      
+      // Tab styling
+      ['command-center', 'metric-focused', 'feed-cards'].forEach(id => {
+        const btn = document.getElementById(`tab-${id}`);
+        const view = document.getElementById(`view-${id}`);
+        if(id === viewId) {
+          view.classList.remove('view-hidden');
+          // active styling
+          let color = id==='command-center'?'cyan':(id==='metric-focused'?'purple':'emerald');
+          btn.className = `snap-center flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-mono-numeric font-semibold transition-all border shadow-[0_0_12px_rgba(0,0,0,0.2)] text-${color}-400 border-${color}-500/50 bg-${color}-950/50`;
+        } else {
+          view.classList.add('view-hidden');
+          // inactive styling
+          btn.className = `snap-center flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-mono-numeric font-semibold transition-all text-slate-400 hover:text-slate-200`;
+        }
+      });
+      renderApp();
+    }
+
+    // --- SUB-RENDERS ---
+    function renderAlerts() {
+      const container = document.getElementById('anomaly-banner-container');
+      const alerts = detectAnomalies(readings);
+      if(!alerts.length) { container.innerHTML = ''; return; }
+      
+      container.innerHTML = alerts.map(a => {
+        let colors = a.type === 'danger' ? 'bg-rose-500/10 border-rose-500/40 text-rose-300' : 
+                    (a.type === 'warning' ? 'bg-amber-500/10 border-amber-500/40 text-amber-300' : 
+                    'bg-cyan-500/10 border-cyan-500/40 text-cyan-300');
+        let iconColor = a.type === 'danger' ? 'text-rose-400' : (a.type === 'warning' ? 'text-amber-400' : 'text-cyan-400');
+        return `
+          <div class="p-4 rounded-2xl border ${colors} flex items-start gap-3 backdrop-blur-md mb-4 shadow-lg animate-in fade-in slide-in-from-top-4">
+            <i data-lucide="${a.icon}" class="w-5 h-5 ${iconColor} shrink-0 mt-0.5"></i>
+            <div>
+              <h4 class="text-sm font-bold tracking-wider font-mono-numeric uppercase">${a.title}</h4>
+              <p class="text-xs opacity-90 mt-1">${a.msg}</p>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderCmdTiles() {
+      const data7d = computeMetrics(filterByTime(readings, '7d'));
+      const data30d = computeMetrics(filterByTime(readings, '30d'));
+      const html = [
+        { label: 'Avg SYS (7D)', val: data7d.avgSys, unit: 'mmHg', color: 'cyan' },
+        { label: 'Avg DIA (7D)', val: data7d.avgDia, unit: 'mmHg', color: 'purple' },
+        { label: 'Avg Pulse (7D)', val: data7d.avgPulse, unit: 'BPM', color: 'amber' },
+        { label: 'MAP (7D)', val: data7d.avgMap, unit: 'mmHg', color: 'emerald' },
+      ].map(t => `
+        <div class="glass-panel p-4 rounded-2xl border border-slate-800 shadow-md">
+          <div class="text-[10px] font-bold uppercase tracking-wider text-${t.color}-400 font-mono-numeric mb-1">${t.label}</div>
+          <div class="flex items-baseline gap-1">
+            <span class="text-2xl font-extrabold text-white font-mono-numeric">${t.val || '—'}</span>
+            <span class="text-xs text-slate-500 font-mono-numeric">${t.unit}</span>
+          </div>
+        </div>
+      `).join('');
+      document.getElementById('cmd-tiles').innerHTML = html;
+    }
+
+    function renderGauges() {
+      const data = computeMetrics(filterByTime(readings, '7d'));
+      
+      const buildSVG = (val, min, max, colorStart, colorEnd) => {
+        let pct = Math.min(Math.max((val - min) / (max - min), 0), 1);
+        if(isNaN(pct)) pct = 0;
+        const totalArc = 167.55; // 240 deg arc of r=40
+        const offset = totalArc - (pct * totalArc);
+        return `
+          <svg viewBox="0 0 100 100" class="w-40 h-40 transform -rotate-[210deg] overflow-visible">
+            <defs>
+              <linearGradient id="grad-${colorStart}" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="${colorStart}" />
+                <stop offset="100%" stopColor="${colorEnd}" />
+              </linearGradient>
+            </defs>
+            <circle cx="50" cy="50" r="40" stroke="rgba(30,41,59,0.8)" stroke-width="8" fill="none" stroke-dasharray="167.55 251.32" stroke-linecap="round"></circle>
+            <circle cx="50" cy="50" r="40" stroke="url(#grad-${colorStart})" stroke-width="8" fill="none" stroke-dasharray="167.55 251.32" stroke-dashoffset="${offset}" stroke-linecap="round" class="transition-all duration-1000 ease-out" style="filter: drop-shadow(0 0 4px ${colorStart});"></circle>
+          </svg>
+        `;
+      };
+
+      const c7d = classifyAHA(data.avgSys, data.avgDia);
+      const html = `
+        <div class="glass-panel p-5 rounded-3xl border border-slate-800 flex flex-col items-center justify-between text-center relative overflow-hidden group">
+          <div class="absolute inset-0 bg-cyan-500/5 blur-xl group-hover:bg-cyan-500/10 transition-all"></div>
+          <div class="w-full flex justify-between z-10"><span class="text-[10px] font-bold uppercase text-slate-300 font-mono-numeric">Systolic</span><span class="px-2 py-0.5 text-[9px] uppercase font-bold rounded-full ${c7d.badge}">${c7d.stage}</span></div>
+          <div class="relative flex items-center justify-center my-2 z-10">
+            ${buildSVG(data.avgSys, 80, 180, '#06b6d4', '#3b82f6')}
+            <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mt-2">
+              <span class="text-3xl font-extrabold text-white font-mono-numeric drop-shadow-lg">${data.avgSys || '—'}</span>
+              <span class="text-[10px] text-slate-400 font-mono-numeric">mmHg</span>
+            </div>
+          </div>
+          <div class="text-[10px] text-slate-500 font-mono-numeric z-10 w-full text-left pt-2 border-t border-slate-800/80">Target: 90-120 mmHg</div>
+        </div>
+
+        <div class="glass-panel p-5 rounded-3xl border border-emerald-500/20 shadow-[0_0_20px_rgba(16,185,129,0.15)] flex flex-col items-center justify-between text-center relative overflow-hidden group">
+          <div class="absolute inset-0 bg-emerald-500/10 blur-xl"></div>
+          <div class="w-full flex justify-between z-10"><span class="text-[10px] font-bold uppercase text-emerald-300 font-mono-numeric">Mean Arterial (MAP)</span><span class="px-2 py-0.5 text-[9px] uppercase font-bold rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">Perfusion</span></div>
+          <div class="relative flex items-center justify-center my-2 z-10">
+            ${buildSVG(data.avgMap, 50, 140, '#10b981', '#06b6d4')}
+            <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mt-2">
+              <span class="text-3xl font-extrabold text-white font-mono-numeric drop-shadow-lg">${data.avgMap || '—'}</span>
+              <span class="text-[10px] text-slate-400 font-mono-numeric">mmHg</span>
+            </div>
+          </div>
+          <div class="text-[10px] text-slate-500 font-mono-numeric z-10 w-full text-left pt-2 border-t border-slate-800/80">Target: 70-100 mmHg</div>
+        </div>
+
+        <div class="glass-panel p-5 rounded-3xl border border-slate-800 flex flex-col items-center justify-between text-center relative overflow-hidden group">
+          <div class="absolute inset-0 bg-purple-500/5 blur-xl group-hover:bg-purple-500/10 transition-all"></div>
+          <div class="w-full flex justify-between z-10"><span class="text-[10px] font-bold uppercase text-slate-300 font-mono-numeric">Diastolic</span><span class="px-2 py-0.5 text-[9px] uppercase font-bold rounded-full ${c7d.badge}">${c7d.stage}</span></div>
+          <div class="relative flex items-center justify-center my-2 z-10">
+            ${buildSVG(data.avgDia, 50, 120, '#c084fc', '#ec4899')}
+            <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mt-2">
+              <span class="text-3xl font-extrabold text-white font-mono-numeric drop-shadow-lg">${data.avgDia || '—'}</span>
+              <span class="text-[10px] text-slate-400 font-mono-numeric">mmHg</span>
+            </div>
+          </div>
+          <div class="text-[10px] text-slate-500 font-mono-numeric z-10 w-full text-left pt-2 border-t border-slate-800/80">Target: 60-80 mmHg</div>
+        </div>
+      `;
+      document.getElementById('gauges-container').innerHTML = html;
+    }
+
+    function toggleFeedCardTimeframe() {
+      feedCardTimeframe = feedCardTimeframe === '7d' ? '30d' : '7d';
+      renderFeedCards();
+      lucide.createIcons();
+    }
+
+    function renderFeedCards() {
+      const metrics = computeMetrics(filterByTime(readings, feedCardTimeframe));
+      const latest = readings[0];
+      const html = `
+        <!-- Interactive Moving Avg Card -->
+        <button onclick="toggleFeedCardTimeframe()" class="snap-center shrink-0 w-72 glass-panel rounded-3xl p-5 border border-purple-500/30 shadow-[0_8px_32px_rgba(192,132,252,0.15)] relative overflow-hidden flex flex-col justify-between text-left group hover:border-purple-400 transition-all">
+          <div class="absolute top-0 right-0 -mr-6 -mt-6 w-24 h-24 rounded-full bg-purple-500/15 blur-xl group-hover:bg-purple-400/20 transition-all"></div>
+          <div class="flex items-center justify-between mb-3 relative z-10">
+            <span class="text-[11px] font-bold uppercase tracking-wider text-purple-300 font-mono-numeric">
+              ${feedCardTimeframe === '7d' ? '7-Day' : '30-Day'} Moving Avg
+            </span>
+            <div class="p-1 rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/30 group-hover:bg-purple-500/20 transition-all">
+              <i data-lucide="trending-up" class="w-3.5 h-3.5"></i>
+            </div>
+          </div>
+          <div class="space-y-2 relative z-10">
+            <div class="flex items-baseline gap-2">
+              <span class="text-3xl font-extrabold text-white font-mono-numeric">${metrics.avgSys || '—'}/${metrics.avgDia || '—'}</span>
+              <span class="text-xs text-slate-400 font-mono-numeric">mmHg</span>
+            </div>
+            <div class="flex items-center justify-between text-xs font-mono-numeric text-slate-300">
+              <span class="text-slate-400">${feedCardTimeframe.toUpperCase()} MAP: <b class="text-cyan-300">${metrics.avgMap || '—'}</b></span>
+              <span class="text-slate-400">Pulse: <b class="text-amber-400">${metrics.avgPulse || '—'} bpm</b></span>
+            </div>
+          </div>
+        </button>
+
+        <!-- MAP Card -->
+        <div class="snap-center shrink-0 w-72 glass-panel rounded-3xl p-5 border border-emerald-500/30 shadow-[0_8px_32px_rgba(16,185,129,0.15)] relative overflow-hidden flex flex-col justify-between">
+          <div class="absolute top-0 right-0 -mr-6 -mt-6 w-24 h-24 rounded-full bg-emerald-500/15 blur-xl"></div>
+          <div class="flex items-center justify-between mb-3 relative z-10">
+            <span class="text-[11px] font-bold uppercase tracking-wider text-emerald-300 font-mono-numeric">Perfusion (MAP)</span>
+            <i data-lucide="activity" class="w-4 h-4 text-emerald-400"></i>
+          </div>
+          <div class="space-y-2 relative z-10">
+            <div class="flex items-baseline gap-2">
+              <span class="text-3xl font-extrabold text-white font-mono-numeric">${latest ? calculateMAP(latest.systolic, latest.diastolic) : '—'}</span>
+              <span class="text-xs text-slate-400 font-mono-numeric">mmHg (Latest)</span>
+            </div>
+            <p class="text-[10px] text-slate-400 font-mono-numeric">Target Range: 70 - 100 mmHg</p>
+          </div>
+        </div>
+
+        <!-- Pulse Pressure Card -->
+        <div class="snap-center shrink-0 w-72 glass-panel rounded-3xl p-5 border border-amber-500/30 shadow-[0_8px_32px_rgba(245,158,11,0.15)] relative overflow-hidden flex flex-col justify-between">
+          <div class="absolute top-0 right-0 -mr-6 -mt-6 w-24 h-24 rounded-full bg-amber-500/15 blur-xl"></div>
+          <div class="flex items-center justify-between mb-3 relative z-10">
+            <span class="text-[11px] font-bold uppercase tracking-wider text-amber-300 font-mono-numeric">Pulse Pressure</span>
+            <i data-lucide="heart" class="w-4 h-4 text-amber-400"></i>
+          </div>
+          <div class="space-y-2 relative z-10">
+            <div class="flex items-baseline gap-2">
+              <span class="text-3xl font-extrabold text-white font-mono-numeric">${latest ? calculatePP(latest.systolic, latest.diastolic) : '—'}</span>
+              <span class="text-xs text-slate-400 font-mono-numeric">mmHg (Latest)</span>
+            </div>
+            <p class="text-[10px] text-slate-400 font-mono-numeric">Target Range: 40 - 60 mmHg</p>
+          </div>
+        </div>
+      `;
+      document.getElementById('feed-carousel').innerHTML = html;
+    }
+
+    function renderFeed() {
+      const container = document.getElementById('feed-container');
+      document.getElementById('feed-count-header').textContent = `Telemetry Feed (${readings.length} Logs)`;
+      
+      if(!readings.length) {
+        container.innerHTML = `<div class="p-10 text-center text-slate-500 font-mono-numeric border border-slate-800 rounded-3xl glass-panel">No telemetry data recorded yet.</div>`;
+        return;
+      }
+      
+      container.innerHTML = readings.map(r => {
+        const cls = classifyAHA(r.systolic, r.diastolic);
+        const d = new Date(r.timestamp);
+        const dStr = d.toLocaleDateString(undefined, {weekday:'short', month:'short', day:'numeric'});
+        const tStr = d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+        
+        let medBadge = r.medTaken 
+          ? `<span class="px-2.5 py-1 rounded-xl text-[11px] font-semibold bg-emerald-950/40 text-emerald-300 border border-emerald-500/30 flex items-center gap-1 font-mono-numeric"><i data-lucide="pill" class="w-3 h-3"></i> ${r.medNames.join(', ')||'Med Taken'}</span>` 
+          : `<span class="px-2.5 py-1 rounded-xl text-[11px] font-semibold bg-slate-900 text-slate-500 border border-slate-800 flex items-center gap-1 font-mono-numeric"><i data-lucide="pill" class="w-3 h-3"></i> No Meds</span>`;
+        
+        return `
+          <div class="glass-panel rounded-2xl p-4 sm:p-5 border border-slate-800 hover:border-slate-700/80 transition-all shadow-[0_4px_20px_rgba(0,0,0,0.3)]">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              
+              <div class="flex items-center gap-4">
+                <div class="p-3 rounded-2xl bg-slate-900/90 border border-slate-800 text-center shrink-0">
+                  <span class="text-[10px] font-black uppercase text-slate-400 block font-mono-numeric">${r.arm.toUpperCase()}</span>
+                  <span class="text-[9px] text-slate-500 block capitalize font-mono-numeric">${r.position.substring(0,3)}</span>
+                </div>
+                
+                <div>
+                  <div class="flex items-baseline gap-2">
+                    <span class="text-2xl font-extrabold text-white font-mono-numeric">${r.systolic}<span class="text-slate-600 font-normal mx-0.5">/</span>${r.diastolic}</span>
+                    <span class="text-xs font-mono-numeric text-slate-400">mmHg</span>
+                    <span class="ml-2 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase font-mono-numeric border ${cls.badge}">${cls.stage}</span>
+                  </div>
+                  <div class="flex flex-wrap items-center gap-2 mt-1 text-[11px] font-mono-numeric text-slate-400">
+                    <span class="flex items-center gap-1 text-slate-300"><i data-lucide="calendar" class="w-3 h-3 text-slate-500"></i> ${dStr} ${tStr}</span>
+                    <span>•</span>
+                    <span class="flex items-center gap-1 text-amber-300"><i data-lucide="heart" class="w-3 h-3 text-amber-400"></i> ${r.pulse} bpm</span>
+                    <span>•</span>
+                    <span>MAP: <b class="text-purple-300">${calculateMAP(r.systolic, r.diastolic)}</b></span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-800/80 w-full sm:w-auto">
+                ${medBadge}
+                <div class="flex gap-1">
+                  <button onclick="editLog('${r.id}')" class="p-2 rounded-xl bg-slate-900/80 text-slate-400 hover:text-cyan-300 border border-slate-700/60 hover:border-cyan-500/40"><i data-lucide="edit-2" class="w-3.5 h-3.5"></i></button>
+                  <button onclick="deleteLog('${r.id}')" class="p-2 rounded-xl bg-slate-900/80 text-slate-400 hover:text-rose-300 border border-slate-700/60 hover:border-rose-500/40"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+                </div>
+              </div>
+
+            </div>
+            ${r.notes ? `<div class="mt-3 pt-2 text-[11px] text-slate-400 font-mono-numeric border-t border-slate-800/50"><span class="text-slate-500">Note:</span> <i>"${r.notes}"</i></div>` : ''}
+          </div>
+        `;
+      }).join('');
+    }
+
+    // --- CHART.JS LOGIC ---
+    // Custom Plugin to draw optimal target zone background
+    const targetZonePlugin = {
+      id: 'targetZone',
+      beforeDraw: (chart) => {
+        const { ctx, chartArea: { left, right }, scales: { y } } = chart;
+        ctx.save();
+        const yTop = y.getPixelForValue(120);
+        const yBot = y.getPixelForValue(80);
+        if(yTop !== undefined && yBot !== undefined) {
+          ctx.fillStyle = 'rgba(16, 185, 129, 0.04)'; // faint emerald
+          ctx.fillRect(left, yTop, right - left, yBot - yTop);
+        }
+        ctx.restore();
+      }
+    };
+    Chart.register(targetZonePlugin);
+
+    function setChartTimeframe(tf) {
+      chartTimeframe = tf;
+      ['7d','30d','90d','all'].forEach(k => {
+        // Handle view 1
+        const b1 = document.getElementById(`tf-1-${k}`);
+        if(b1) b1.className = (k === tf) ? "px-3 py-1 rounded-lg text-[10px] font-mono-numeric font-bold bg-cyan-500/20 text-cyan-300" : "px-3 py-1 rounded-lg text-[10px] font-mono-numeric font-bold text-slate-400";
+        // Handle view 2
+        const b2 = document.getElementById(`tf-2-${k}`);
+        if(b2) b2.className = (k === tf) ? "px-3 py-1 rounded-lg text-[10px] font-mono-numeric font-bold bg-purple-500/20 text-purple-300" : "px-3 py-1 rounded-lg text-[10px] font-mono-numeric font-bold text-slate-400";
+      });
+      if(activeView === 'command-center') renderChart('chart-command-center');
+      if(activeView === 'metric-focused') renderChart('chart-metric-focused');
+    }
+
+    function renderChart(canvasId) {
+      if(theChart) { theChart.destroy(); }
+      const ctx = document.getElementById(canvasId);
+      if(!ctx) return;
+      
+      const filtered = filterByTime(readings, chartTimeframe).sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp)); // Oldest first for X axis
+      
+      // Gradients
+      const cctx = ctx.getContext('2d');
+      const gradSys = cctx.createLinearGradient(0,0,0,300);
+      gradSys.addColorStop(0, 'rgba(6,182,212,0.3)'); gradSys.addColorStop(1, 'rgba(6,182,212,0)');
+      
+      const gradDia = cctx.createLinearGradient(0,0,0,300);
+      gradDia.addColorStop(0, 'rgba(192,132,252,0.3)'); gradDia.addColorStop(1, 'rgba(192,132,252,0)');
+
+      theChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: filtered.map(r => {
+             const d = new Date(r.timestamp);
+             return chartTimeframe==='7d' 
+               ? `${d.toLocaleDateString([],{weekday:'short'})} ${d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}`
+               : `${d.toLocaleDateString([],{month:'short', day:'numeric'})}`;
+          }),
+          datasets: [
+            {
+              label: 'Systolic',
+              data: filtered.map(r => r.systolic),
+              borderColor: '#06b6d4',
+              backgroundColor: gradSys,
+              fill: true,
+              tension: 0.4,
+              borderWidth: 3,
+              pointBackgroundColor: '#06b6d4',
+              pointRadius: 4,
+              pointHoverRadius: 6,
+            },
+            {
+              label: 'Diastolic',
+              data: filtered.map(r => r.diastolic),
+              borderColor: '#c084fc',
+              backgroundColor: gradDia,
+              fill: true,
+              tension: 0.4,
+              borderWidth: 3,
+              pointBackgroundColor: '#c084fc',
+              pointRadius: 4,
+              pointHoverRadius: 6,
+            }
+          ]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: 'rgba(15, 23, 42, 0.9)',
+              titleColor: '#38bdf8', bodyColor: '#f8fafc',
+              borderColor: 'rgba(56, 189, 248, 0.3)', borderWidth: 1,
+              padding: 12, cornerRadius: 8,
+              titleFont: { family: '"Plus Jakarta Sans"', size: 13 },
+              bodyFont: { family: '"JetBrains Mono"', size: 12 },
+              callbacks: {
+                 afterBody: (items) => {
+                   const r = filtered[items[0].dataIndex];
+                   return `\nPulse: ${r.pulse} bpm\nMed: ${r.medTaken?'✓ Taken':'✗ Missed'}`;
+                 }
+              }
+            }
+          },
+          scales: {
+            x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8', font: {family: '"JetBrains Mono"', size: 10} } },
+            y: { min: 40, max: 200, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8', stepSize: 20, font: {family: '"JetBrains Mono"', size: 10} } }
+          }
+        }
+      });
+    }
+
+    // --- FORM & ACTION LOGIC ---
+    function updateQuickLogBadge() {
+      const sys = parseInt(document.getElementById('ql-sys').value) || 0;
+      const dia = parseInt(document.getElementById('ql-dia').value) || 0;
+      const badge = document.getElementById('quick-log-badge');
+      if(!sys || !dia) return;
+      const cls = classifyAHA(sys, dia);
+      badge.className = `px-2 py-0.5 rounded-full text-[10px] uppercase font-bold border ${cls.badge}`;
+      badge.textContent = cls.stage;
+    }
+
+    function handleQuickLog(e) {
+      e.preventDefault();
+      const reading = {
+        id: 'rd-' + Date.now().toString(36),
+        timestamp: new Date().toISOString(),
+        systolic: parseInt(document.getElementById('ql-sys').value),
+        diastolic: parseInt(document.getElementById('ql-dia').value),
+        pulse: parseInt(document.getElementById('ql-pulse').value),
+        arm: document.getElementById('ql-arm').value,
+        position: 'sitting',
+        medTaken: true, // assumption for quick log
+        medNames: ['General Rx'],
+        notes: 'Quick Command Center Log'
+      };
+      readings.unshift(reading);
+      saveReadings();
+      // visual feedback handled natively by immediate render
+    }
+
+    function handleFullLogSubmit(e) {
+      e.preventDefault();
+      const id = document.getElementById('edit-id').value;
+      const dateStr = document.getElementById('f-date').value;
+      const timeStr = document.getElementById('f-time').value;
+      
+      const dt = new Date(`${dateStr}T${timeStr}`);
+      
+      const medInput = document.getElementById('f-mednames').value.trim();
+      const medNames = medInput ? medInput.split(',').map(s=>s.trim()) : [];
+
+      const newReading = {
+        id: id || 'rd-' + Date.now().toString(36),
+        timestamp: dt.toISOString(),
+        systolic: parseInt(document.getElementById('f-sys').value),
+        diastolic: parseInt(document.getElementById('f-dia').value),
+        pulse: parseInt(document.getElementById('f-pulse').value),
+        arm: document.getElementById('f-arm').value,
+        position: document.getElementById('f-pos').value,
+        medTaken: document.getElementById('f-medtaken').checked,
+        medNames: medNames,
+        notes: document.getElementById('f-notes').value
+      };
+
+      if(id) {
+        const idx = readings.findIndex(r => r.id === id);
+        if(idx !== -1) readings[idx] = newReading;
+      } else {
+        readings.unshift(newReading);
+      }
+      saveReadings();
+      closeModal('logModal');
+    }
+
+    function deleteLog(id) {
+      if(confirm('Delete this reading?')) {
+        readings = readings.filter(r => r.id !== id);
+        saveReadings();
+      }
+    }
+
+    function editLog(id) {
+      const r = readings.find(x => x.id === id);
+      if(!r) return;
+      document.getElementById('edit-id').value = r.id;
+      document.getElementById('f-sys').value = r.systolic;
+      document.getElementById('f-dia').value = r.diastolic;
+      document.getElementById('f-pulse').value = r.pulse;
+      
+      const d = new Date(r.timestamp);
+      // yyyy-mm-dd local
+      document.getElementById('f-date').value = new Date(d.getTime() - (d.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+      document.getElementById('f-time').value = d.toTimeString().slice(0,5);
+      
+      document.getElementById('f-arm').value = r.arm;
+      document.getElementById('f-pos').value = r.position;
+      document.getElementById('f-medtaken').checked = r.medTaken;
+      document.getElementById('f-mednames').value = r.medNames ? r.medNames.join(', ') : '';
+      document.getElementById('f-notes').value = r.notes || '';
+      
+      document.getElementById('logModalTitle').innerHTML = '<i data-lucide="edit-2" class="w-5 h-5 text-cyan-400"></i> Edit Vitals';
+      
+      openModal('logModal');
+      lucide.createIcons();
+    }
+
+    function openModal(id) {
+      if(id === 'logModal' && !document.getElementById('edit-id').value) {
+        // New mode - reset form
+        document.getElementById('full-log-form').reset();
+        document.getElementById('edit-id').value = '';
+        const now = new Date();
+        document.getElementById('f-date').value = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+        document.getElementById('f-time').value = now.toTimeString().slice(0,5);
+        document.getElementById('logModalTitle').innerHTML = '<i data-lucide="plus" class="w-5 h-5 text-cyan-400"></i> Record Vitals';
+      }
+      document.getElementById(id).classList.remove('hidden');
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.add('hidden');
+      if(id === 'logModal') document.getElementById('edit-id').value = ''; // clear edit state
+    }
+
+    // --- CSV & JSON EXPORT ---
+    function exportCSV() {
+      if(!readings.length) return alert('No data to export.');
+      const headers = ['Date', 'Time', 'Systolic (mmHg)', 'Diastolic (mmHg)', 'Pulse (bpm)', 'MAP', 'AHA Stage', 'Arm', 'Position', 'Med Taken', 'Notes'];
+      const rows = readings.map(r => {
+        const d = new Date(r.timestamp);
+        return [
+          d.toLocaleDateString(), d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),
+          r.systolic, r.diastolic, r.pulse, calculateMAP(r.systolic, r.diastolic),
+          classifyAHA(r.systolic, r.diastolic).stage, r.arm, r.position,
+          r.medTaken ? 'Yes' : 'No',
+          `"${(r.notes || '').replace(/"/g, '""')}"`
+        ].join(',');
+      });
+      const csv = [headers.join(','), ...rows].join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `pulseguard-export-${new Date().toISOString().slice(0,10)}.csv`;
+      link.click();
+    }
+
+    function exportJSON() {
+      const dataStr = JSON.stringify(readings, null, 2);
+      const blob = new Blob([dataStr], { type: 'application/json' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `pulseguard-backup-${new Date().toISOString().slice(0,10)}.json`;
+      link.click();
+    }
+
+    function importJSON() {
+      const text = document.getElementById('import-json-data').value;
+      try {
+        const data = JSON.parse(text);
+        if(!Array.isArray(data)) throw new Error('Root must be an array');
+        if(confirm(`Restore ${data.length} readings? This replaces current data.`)) {
+          readings = data;
+          saveReadings();
+          closeModal('backupModal');
+          document.getElementById('import-json-data').value = '';
+          alert('Data restored successfully.');
+        }
+      } catch(e) {
+        alert('Invalid JSON format.');
+      }
+    }
+
+    // Initialize
+    switchView(activeView);
+  </script>
+</body>
+</html>
