@@ -1,0 +1,6 @@
+{
+  "name": "PulseGuard: Blood Pressure & Medication Tracker",
+  "description": "Futuristic dark glassmorphism cardiovascular and medication tracker with real-time AHA classification, anomaly warnings, Chart.js analytics, and local persistence.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
