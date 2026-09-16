@@ -119,21 +119,28 @@
       }
     }
 
-    @media print {
-      body * {
-        visibility: hidden !important;
+   @media print {
+      /* Force the paper and root canvas to pure white */
+      html, body {
+        background: #ffffff !important;
+        background-color: #ffffff !important;
+        color: #0f172a !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        height: auto !important;
+        min-height: 0 !important;
       }
 
-      #clinical-report-root, #clinical-report-root * {
-        visibility: visible !important;
+      /* Completely remove app UI from the print flow so it takes zero height */
+      body > *:not(#clinical-report-root) {
+        display: none !important;
       }
 
+      /* Allow report to sit naturally in document flow */
       #clinical-report-root {
         display: block !important;
-        position: absolute;
-        left: 0;
-        top: 0;
-        width: 100%;
+        position: static !important;
+        width: 100% !important;
         background: #ffffff !important;
         color: #0f172a !important;
         padding: 0;
