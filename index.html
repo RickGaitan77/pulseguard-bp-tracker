@@ -111,6 +111,45 @@
     .view-hidden {
       display: none !important;
     }
+
+    /* Print Stylesheet for Single-Page Clinical Report */
+    @media screen {
+      #clinical-report-root {
+        display: none;
+      }
+    }
+
+    @media print {
+      body * {
+        visibility: hidden !important;
+      }
+
+      #clinical-report-root, #clinical-report-root * {
+        visibility: visible !important;
+      }
+
+      #clinical-report-root {
+        display: block !important;
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        background: #ffffff !important;
+        color: #0f172a !important;
+        padding: 0;
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      }
+
+      @page {
+        size: letter portrait;
+        margin: 0.35in 0.45in;
+      }
+
+      tr {
+        page-break-inside: avoid;
+      }
+    }
   </style>
 </head>
 <body class="min-h-screen relative overflow-x-hidden pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
@@ -172,12 +211,12 @@
             </button>
           </div>
 
-          <!-- Actions -->
+          <!-- Actions: PDF Export Swapped in for CSV -->
           <div class="flex items-center gap-2 shrink-0">
-            <button onclick="exportCSV()" class="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-slate-300 bg-slate-900/80 hover:bg-slate-800 hover:text-cyan-300 border border-slate-700/60 rounded-xl transition-all">
-              <i data-lucide="download" class="w-3.5 h-3.5 text-cyan-400"></i> <span class="hidden sm:inline">CSV</span>
+            <button onclick="exportClinicalPDF()" class="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-slate-300 bg-slate-900/80 hover:bg-slate-800 hover:text-cyan-300 border border-slate-700/60 rounded-xl transition-all cursor-pointer" title="Export Clinical PDF">
+              <i data-lucide="file-text" class="w-3.5 h-3.5 text-cyan-400"></i> <span class="hidden sm:inline">PDF</span>
             </button>
-            <button onclick="openModal('backupModal')" class="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-slate-300 bg-slate-900/80 hover:bg-slate-800 hover:text-purple-300 border border-slate-700/60 rounded-xl transition-all">
+            <button onclick="openModal('backupModal')" class="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-slate-300 bg-slate-900/80 hover:bg-slate-800 hover:text-purple-300 border border-slate-700/60 rounded-xl transition-all cursor-pointer">
               <i data-lucide="database" class="w-3.5 h-3.5 text-purple-400"></i> <span class="hidden sm:inline">JSON</span>
             </button>
           </div>
@@ -217,7 +256,7 @@
           </div>
         </section>
 
-        <!-- Quick Log Strip -->
+        <!-- Quick Log Strip (AutoClear Enabled) -->
         <section class="glass-panel rounded-3xl p-4 sm:p-5 border-cyan-500/30 shadow-[0_8px_32px_rgba(6,182,212,0.2)] bg-gradient-to-r from-slate-950 via-slate-900/90 to-slate-950">
           <form id="quick-log-form" onsubmit="handleQuickLog(event)" class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
             
@@ -235,19 +274,19 @@
               </div>
             </button>
 
-            <!-- Inline Fields -->
+            <!-- Inline Fields with AutoClear -->
             <div class="w-full lg:w-auto flex flex-wrap items-center gap-2.5">
               <div class="flex items-center bg-slate-950/80 border border-cyan-500/30 rounded-xl px-2.5 py-1.5">
                 <span class="text-[10px] font-mono-numeric text-cyan-400 font-bold mr-1.5 uppercase">SYS:</span>
-                <input type="number" id="ql-sys" value="120" min="60" max="250" required oninput="updateQuickLogBadge()" class="w-12 bg-transparent text-sm font-bold text-white font-mono-numeric focus:outline-none">
+                <input type="number" id="ql-sys" value="120" min="60" max="250" inputmode="numeric" onfocus="this.value = ''" required oninput="updateQuickLogBadge()" class="w-12 bg-transparent text-sm font-bold text-white font-mono-numeric focus:outline-none">
               </div>
               <div class="flex items-center bg-slate-950/80 border border-purple-500/30 rounded-xl px-2.5 py-1.5">
                 <span class="text-[10px] font-mono-numeric text-purple-400 font-bold mr-1.5 uppercase">DIA:</span>
-                <input type="number" id="ql-dia" value="80" min="40" max="160" required oninput="updateQuickLogBadge()" class="w-12 bg-transparent text-sm font-bold text-white font-mono-numeric focus:outline-none">
+                <input type="number" id="ql-dia" value="80" min="40" max="160" inputmode="numeric" onfocus="this.value = ''" required oninput="updateQuickLogBadge()" class="w-12 bg-transparent text-sm font-bold text-white font-mono-numeric focus:outline-none">
               </div>
               <div class="flex items-center bg-slate-950/80 border border-amber-500/30 rounded-xl px-2.5 py-1.5">
                 <span class="text-[10px] font-mono-numeric text-amber-400 font-bold mr-1.5 uppercase">BPM:</span>
-                <input type="number" id="ql-pulse" value="72" min="35" max="220" required class="w-12 bg-transparent text-sm font-bold text-white font-mono-numeric focus:outline-none">
+                <input type="number" id="ql-pulse" value="72" min="35" max="220" inputmode="numeric" onfocus="this.value = ''" required class="w-12 bg-transparent text-sm font-bold text-white font-mono-numeric focus:outline-none">
               </div>
               
               <select id="ql-arm" class="bg-slate-950/80 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-slate-300 font-mono-numeric focus:outline-none">
@@ -346,7 +385,7 @@
   </div>
 
   <!-- MODALS -->
-  <!-- 1. Log / Edit Modal -->
+  <!-- 1. Log / Edit Modal (AutoClear Enabled) -->
   <div id="logModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto pt-[env(safe-area-inset-top)]">
     <div class="relative w-full max-w-xl glass-panel border border-slate-800 rounded-3xl p-6 shadow-2xl my-auto animate-in fade-in zoom-in-95">
       <div class="flex items-center justify-between mb-6">
@@ -361,19 +400,19 @@
       <form id="full-log-form" onsubmit="handleFullLogSubmit(event)" class="space-y-5">
         <input type="hidden" id="edit-id" value="">
         
-        <!-- SYS / DIA / Pulse -->
+        <!-- SYS / DIA / Pulse with AutoClear -->
         <div class="grid grid-cols-3 gap-3">
           <div class="space-y-1.5">
             <label class="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono-numeric">Systolic</label>
-            <input type="number" id="f-sys" required min="60" max="250" class="w-full bg-slate-900/80 border border-slate-700 rounded-xl px-3 py-2.5 text-white font-mono-numeric focus:border-cyan-500 focus:outline-none" placeholder="120">
+            <input type="number" id="f-sys" required min="60" max="250" inputmode="numeric" onfocus="this.value = ''" class="w-full bg-slate-900/80 border border-slate-700 rounded-xl px-3 py-2.5 text-white font-mono-numeric focus:border-cyan-500 focus:outline-none" placeholder="120">
           </div>
           <div class="space-y-1.5">
             <label class="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono-numeric">Diastolic</label>
-            <input type="number" id="f-dia" required min="40" max="160" class="w-full bg-slate-900/80 border border-slate-700 rounded-xl px-3 py-2.5 text-white font-mono-numeric focus:border-purple-500 focus:outline-none" placeholder="80">
+            <input type="number" id="f-dia" required min="40" max="160" inputmode="numeric" onfocus="this.value = ''" class="w-full bg-slate-900/80 border border-slate-700 rounded-xl px-3 py-2.5 text-white font-mono-numeric focus:border-purple-500 focus:outline-none" placeholder="80">
           </div>
           <div class="space-y-1.5">
             <label class="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono-numeric">Pulse</label>
-            <input type="number" id="f-pulse" required min="35" max="220" class="w-full bg-slate-900/80 border border-slate-700 rounded-xl px-3 py-2.5 text-white font-mono-numeric focus:border-amber-500 focus:outline-none" placeholder="72">
+            <input type="number" id="f-pulse" required min="35" max="220" inputmode="numeric" onfocus="this.value = ''" class="w-full bg-slate-900/80 border border-slate-700 rounded-xl px-3 py-2.5 text-white font-mono-numeric focus:border-amber-500 focus:outline-none" placeholder="72">
           </div>
         </div>
 
@@ -999,7 +1038,6 @@
       };
       readings.unshift(reading);
       saveReadings();
-      // visual feedback handled natively by immediate render
     }
 
     function handleFullLogSubmit(e) {
@@ -1052,7 +1090,6 @@
       document.getElementById('f-pulse').value = r.pulse;
       
       const d = new Date(r.timestamp);
-      // yyyy-mm-dd local
       document.getElementById('f-date').value = new Date(d.getTime() - (d.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
       document.getElementById('f-time').value = d.toTimeString().slice(0,5);
       
@@ -1070,7 +1107,6 @@
 
     function openModal(id) {
       if(id === 'logModal' && !document.getElementById('edit-id').value) {
-        // New mode - reset form
         document.getElementById('full-log-form').reset();
         document.getElementById('edit-id').value = '';
         const now = new Date();
@@ -1083,7 +1119,7 @@
 
     function closeModal(id) {
       document.getElementById(id).classList.add('hidden');
-      if(id === 'logModal') document.getElementById('edit-id').value = ''; // clear edit state
+      if(id === 'logModal') document.getElementById('edit-id').value = '';
     }
 
     // --- CSV & JSON EXPORT ---
@@ -1134,8 +1170,224 @@
       }
     }
 
+    // --- CLINICAL PDF EXPORT ---
+    function exportClinicalPDF() {
+      if (!readings || readings.length === 0) {
+        alert('No readings available to compile into a report.');
+        return;
+      }
+
+      // Sort chronologically (oldest to newest)
+      const sorted = [...readings].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+      // Filter to past 30 days (fallback to all records if fewer than 30 days)
+      const thirtyDaysAgo = new Date(Date.now() - (30 * 24 * 60 * 60 * 1000));
+      const recent = sorted.filter(r => new Date(r.timestamp) >= thirtyDaysAgo);
+      const data = recent.length > 0 ? recent : sorted;
+      const total = data.length;
+
+      // Hemodynamic Averages
+      const avgSys = Math.round(data.reduce((acc, r) => acc + Number(r.systolic), 0) / total);
+      const avgDia = Math.round(data.reduce((acc, r) => acc + Number(r.diastolic), 0) / total);
+      const avgPulse = Math.round(data.reduce((acc, r) => acc + Number(r.pulse || 0), 0) / total);
+
+      // Circadian Dipping (AM: 04:00 - 11:59 | PM: 12:00 - 03:59)
+      const amLogs = data.filter(r => {
+        const h = new Date(r.timestamp).getHours();
+        return h >= 4 && h < 12;
+      });
+      const pmLogs = data.filter(r => {
+        const h = new Date(r.timestamp).getHours();
+        return h >= 12 || h < 4;
+      });
+
+      const amAvg = amLogs.length 
+        ? `${Math.round(amLogs.reduce((a, b) => a + Number(b.systolic), 0) / amLogs.length)}/${Math.round(amLogs.reduce((a, b) => a + Number(b.diastolic), 0) / amLogs.length)}` 
+        : '—';
+      const pmAvg = pmLogs.length 
+        ? `${Math.round(pmLogs.reduce((a, b) => a + Number(b.systolic), 0) / pmLogs.length)}/${Math.round(pmLogs.reduce((a, b) => a + Number(b.diastolic), 0) / pmLogs.length)}` 
+        : '—';
+
+      // Vascular Indicators & Extremes
+      const pulsePressure = avgSys - avgDia;
+      const mapVal = Math.round(avgDia + (pulsePressure / 3));
+
+      const maxSys = Math.max(...data.map(r => Number(r.systolic)));
+      const minSys = Math.min(...data.map(r => Number(r.systolic)));
+      const maxDia = Math.max(...data.map(r => Number(r.diastolic)));
+      const minDia = Math.min(...data.map(r => Number(r.diastolic)));
+
+      // AHA Distribution
+      let normalCount = 0, elevatedCount = 0, stage1Count = 0, stage2Count = 0;
+      data.forEach(r => {
+        const s = Number(r.systolic);
+        const d = Number(r.diastolic);
+        if (s >= 140 || d >= 90) stage2Count++;
+        else if (s >= 130 || d >= 80) stage1Count++;
+        else if (s >= 120 && d < 80) elevatedCount++;
+        else normalCount++;
+      });
+      const pct = count => Math.round((count / total) * 100);
+
+      // Date Range String
+      const formatDate = d => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      const dateRangeStr = `${formatDate(data[0].timestamp)} – ${formatDate(data[data.length - 1].timestamp)}`;
+
+      // Reading Log Rows (Newest first)
+      const logRows = [...data].reverse().map(r => {
+        const dt = new Date(r.timestamp);
+        const dateStr = dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        const timeStr = dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+        const s = Number(r.systolic);
+        const d = Number(r.diastolic);
+
+        const isStage2 = s >= 140 || d >= 90;
+        const isStage1 = (s >= 130 || d >= 80) && !isStage2;
+
+        let bpColor = '#0f172a';
+        let flag = '';
+        if (isStage2) {
+          bpColor = '#b91c1c';
+          flag = ' ⚠️';
+        } else if (isStage1) {
+          bpColor = '#d97706';
+        }
+
+        const medInfo = r.medTaken ? (r.medNames && r.medNames.length ? r.medNames.join(', ') : 'Rx taken') : '';
+        const contextParts = [medInfo, r.notes].filter(Boolean).join(' • ');
+
+        return `
+          <tr style="border-bottom: 1px solid #e2e8f0; font-size: 10px;">
+            <td style="padding: 3.5px 6px; font-weight: 600;">${dateStr}</td>
+            <td style="padding: 3.5px 6px; color: #64748b;">${timeStr}</td>
+            <td style="padding: 3.5px 6px; font-weight: 700; color: ${bpColor};">
+              ${s} / ${d}${flag}
+            </td>
+            <td style="padding: 3.5px 6px; color: #334155;">${r.pulse ? `${r.pulse} bpm` : '—'}</td>
+            <td style="padding: 3.5px 6px; color: #64748b; font-style: italic;">${contextParts || '—'}</td>
+          </tr>
+        `;
+      }).join('');
+
+      // Render Off-Screen Medical Document
+      const root = document.getElementById('clinical-report-root');
+      root.innerHTML = `
+        <div style="max-width: 7.5in; margin: 0 auto; color: #0f172a;">
+          
+          <!-- Header -->
+          <div style="display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #0f172a; padding-bottom: 6px; margin-bottom: 10px;">
+            <div>
+              <h1 style="margin: 0; font-size: 19px; font-weight: 800; letter-spacing: -0.02em;">Richard Gaitan</h1>
+              <p style="margin: 2px 0 0 0; font-size: 11px; color: #475569; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;">Cardiovascular Self-Monitoring Report</p>
+            </div>
+            <div style="text-align: right;">
+              <div style="font-size: 12px; font-weight: 700;">${dateRangeStr}</div>
+              <div style="font-size: 10px; color: #64748b; margin-top: 1px;">Total Entries: <strong>${total}</strong></div>
+            </div>
+          </div>
+
+          <!-- Summary Split Block -->
+          <div style="display: grid; grid-template-columns: 1.15fr 1fr; gap: 10px; margin-bottom: 12px;">
+            
+            <!-- Left: Hemodynamic Indicators -->
+            <div style="border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px 10px; background: #f8fafc;">
+              <div style="font-size: 9px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;">Hemodynamic & Circadian Overview</div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 11px;">
+                <div>
+                  <span style="color: #64748b; font-size: 10px;">30-Day Mean:</span>
+                  <div style="font-size: 15px; font-weight: 800; color: #0f172a;">${avgSys} / ${avgDia} <span style="font-size: 9px; font-weight: 500;">mmHg</span></div>
+                </div>
+                <div>
+                  <span style="color: #64748b; font-size: 10px;">Mean Pulse:</span>
+                  <div style="font-size: 15px; font-weight: 800; color: #0f172a;">${avgPulse} <span style="font-size: 9px; font-weight: 500;">bpm</span></div>
+                </div>
+                <div style="grid-column: span 2; border-top: 1px solid #e2e8f0; padding-top: 4px; margin-top: 2px;">
+                  <span style="color: #64748b; font-size: 10px;">Circadian Comparison:</span>
+                  <div style="font-weight: 700; color: #0f172a; margin-top: 1px;">
+                    AM (04-12h): <strong>${amAvg}</strong> <span style="color: #94a3b8; margin: 0 4px;">|</span> PM (12-04h): <strong>${pmAvg}</strong>
+                  </div>
+                </div>
+                <div style="grid-column: span 2; border-top: 1px solid #e2e8f0; padding-top: 4px;">
+                  <span style="color: #64748b; font-size: 10px;">Vascular Indicators & Extremes:</span>
+                  <div style="font-weight: 600; color: #334155; margin-top: 1px; font-size: 10px;">
+                    Pulse Press: <strong>${pulsePressure} mmHg</strong> <span style="color: #94a3b8; margin: 0 3px;">•</span> MAP: <strong>${mapVal} mmHg</strong>
+                  </div>
+                  <div style="color: #475569; font-size: 10px; margin-top: 2px;">
+                    Peak: <span style="color: #b91c1c; font-weight: 700;">${maxSys}/${maxDia}</span> <span style="color: #94a3b8; margin: 0 3px;">•</span> Low: <span style="color: #15803d; font-weight: 700;">${minSys}/${minDia}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right: AHA Distribution -->
+            <div style="border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px 10px; background: #ffffff;">
+              <div style="font-size: 9px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;">AHA Category Distribution</div>
+              <table style="width: 100%; border-collapse: collapse; font-size: 10px; text-align: left;">
+                <thead>
+                  <tr style="border-bottom: 1px solid #cbd5e1; color: #64748b; font-size: 8.5px; text-transform: uppercase;">
+                    <th style="padding: 2px 0;">Tier</th>
+                    <th style="padding: 2px 0;">Range (mmHg)</th>
+                    <th style="padding: 2px 0; text-align: right;">%</th>
+                    <th style="padding: 2px 0; text-align: right;">Count</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr style="border-bottom: 1px solid #f1f5f9;">
+                    <td style="padding: 3px 0; font-weight: 700; color: #15803d;">Normal</td>
+                    <td style="padding: 3px 0; color: #64748b;">&lt; 120 and &lt; 80</td>
+                    <td style="padding: 3px 0; text-align: right; font-weight: 700;">${pct(normalCount)}%</td>
+                    <td style="padding: 3px 0; text-align: right; color: #64748b;">${normalCount}</td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid #f1f5f9;">
+                    <td style="padding: 3px 0; font-weight: 700; color: #475569;">Elevated</td>
+                    <td style="padding: 3px 0; color: #64748b;">120-129 and &lt; 80</td>
+                    <td style="padding: 3px 0; text-align: right; font-weight: 700;">${pct(elevatedCount)}%</td>
+                    <td style="padding: 3px 0; text-align: right; color: #64748b;">${elevatedCount}</td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid #f1f5f9;">
+                    <td style="padding: 3px 0; font-weight: 700; color: #d97706;">Stage 1</td>
+                    <td style="padding: 3px 0; color: #64748b;">130-139 or 80-89</td>
+                    <td style="padding: 3px 0; text-align: right; font-weight: 700;">${pct(stage1Count)}%</td>
+                    <td style="padding: 3px 0; text-align: right; color: #64748b;">${stage1Count}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 3px 0; font-weight: 700; color: #b91c1c;">Stage 2</td>
+                    <td style="padding: 3px 0; color: #64748b;">≥ 140 or ≥ 90</td>
+                    <td style="padding: 3px 0; text-align: right; font-weight: 700;">${pct(stage2Count)}%</td>
+                    <td style="padding: 3px 0; text-align: right; color: #64748b;">${stage2Count}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Reading Log Table -->
+          <table style="width: 100%; border-collapse: collapse; text-align: left;">
+            <thead>
+              <tr style="border-bottom: 1.5px solid #0f172a; font-size: 8.5px; text-transform: uppercase; color: #475569;">
+                <th style="padding: 3px 6px;">Date</th>
+                <th style="padding: 3px 6px;">Time</th>
+                <th style="padding: 3px 6px;">BP (mmHg)</th>
+                <th style="padding: 3px 6px;">Pulse</th>
+                <th style="padding: 3px 6px;">Context / Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${logRows}
+            </tbody>
+          </table>
+        </div>
+      `;
+
+      // Trigger Native iOS / Desktop Print Flow
+      window.print();
+    }
+
     // Initialize
     switchView(activeView);
   </script>
+
+  <!-- Hidden Off-Screen Report Container for window.print() -->
+  <div id="clinical-report-root"></div>
 </body>
 </html>
